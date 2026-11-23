@@ -21,6 +21,29 @@ Dile a tu Claude Code:
 Luego abre un chat nuevo. La primera vez, el plugin revisa que todo esté en orden y te
 dice qué falta.
 
+### Para la IA que hace la instalación (síguelo en el mismo chat)
+
+1. Instala el plugin:
+   ```
+   claude plugin marketplace add BitCoderSB/orquesta-nube
+   claude plugin install orquesta-nube@orquesta-nube
+   ```
+   Si no existe el comando `claude`, regístralo en `~/.claude/settings.json`
+   (`extraKnownMarketplaces` y `enabledPlugins`).
+2. **Deja lista la consola en este mismo chat**, sin esperar a otro.
+   - Comprueba `claude --version`.
+   - Si no existe o dice `native binary not installed`, instálalo:
+     `npm install -g @anthropic-ai/claude-code --include=optional`. Si sigue diciendo
+     `native binary not installed`, ejecuta `node install.cjs` dentro de
+     `$(npm root -g)/@anthropic-ai/claude-code`.
+   - Si no hay `npm`, dile al usuario que instale Node.js o Claude Code según la
+     documentación oficial.
+   - Si npm da `EACCES`, explícale que falta permiso para instalar globalmente.
+3. Comprueba `claude --version` otra vez.
+4. Pídele al usuario que abra **una terminal nueva**, ejecute `claude auth login` y pegue
+   él el código. Tú no escribes códigos ni contraseñas.
+5. Dile que abra un chat nuevo para que se cargue el skill `nube`.
+
 ## Dos modos
 
 | | Modo consola (recomendado) | Modo app |
