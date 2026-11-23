@@ -19,16 +19,22 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/nube.sh" <comando> ...
 
 ## Qué NO usar
 
-No uses `start_session` con `target: "cloud"`, ni el panel de terminal
-(`run_in_terminal`), ni `Agent` con `isolation: "remote"`. Los dos primeros piden permiso
-al usuario cada vez, y el tercero puede acabar corriendo en su PC.
+No uses el panel de terminal (`run_in_terminal`) ni `Agent` con `isolation: "remote"`:
+el primero pide permiso cada vez y el segundo puede acabar corriendo en la PC del
+usuario. `start_session` con `target: "cloud"` se usa **solo** en el modo app (ver
+abajo).
 
 ## Antes de la primera tarea
 
-1. **Revisar.** Ejecuta `NUBE revisar`.
-   - `FALTA: iniciar sesión`: pide al usuario que ejecute `claude auth login` en una
-     terminal y que pegue él el código. Tú nunca escribes códigos ni contraseñas.
-   - Cualquier otro `FALTA`: díselo al usuario tal cual.
+1. **Revisar.** Ejecuta `NUBE revisar`. La última línea dice el modo:
+   - `LISTO MODO=consola`: lanzas con `lanzar` y no se le pide nada al usuario. Es el
+     mejor modo.
+   - `LISTO MODO=app`: falta el comando `claude` de consola o su inicio de sesión. Usa el
+     **modo app** (sección propia, más abajo): funciona, pero **cada sesión le pedirá
+     permiso al usuario**. Díselo una vez, junto con cómo evitarlo: instalar Claude Code
+     de consola y ejecutar `claude auth login` una sola vez. El código lo pega él; tú
+     nunca escribes códigos ni contraseñas.
+   - Una línea `FALTA`: no se puede seguir; díselo al usuario tal cual.
    - Si dice que el repositorio es **público**, avísale una vez: lo que se suba a las
      ramas `nube-*` lo puede ver cualquiera.
 2. **Qué código ve la nube.** La nube clona la rama actual **tal como está en GitHub**:
@@ -77,6 +83,31 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/nube.sh" lanzar <nombre> <archivo-tarea>
 - **Varias sesiones.** Lánzalas una tras otra: cada lanzamiento tarda unos segundos.
 - **Resultado esperado.** Debe salir `LANZADA ... sesion=session_...`. Si sale
   `NO SE CREO LA SESION`, cuéntale al usuario el motivo que imprime.
+
+## Modo app (sin consola: cada sesión pide permiso)
+
+Úsalo solo si `revisar` dijo `MODO=app` y el usuario no quiere o no puede iniciar
+sesión en la consola. Por cada sesión:
+
+1. `NUBE preparar <nombre> <archivo-tarea>`: arma la tarea completa, con las reglas de
+   entrega, y la registra. Imprime `TAREA_COMPLETA=<ruta>`.
+2. Lee ese archivo y llama a `start_session` con estos datos:
+   - `target: "cloud"`, `initiation: "user_asked"`, `context: "fresh"`;
+   - `title: "nube: <nombre>"`;
+   - `prompt`: el contenido **exacto** del archivo;
+   - `background`: una frase con el objetivo.
+
+   La app le pedirá permiso al usuario.
+3. `NUBE registrar <nombre>`, con el id de la sesión si el resultado te lo dio.
+4. Desde aquí, todo igual: `vigilar`, `leer` y `limpiar`.
+
+Diferencias con el modo consola:
+- **Código de partida.** La sesión parte de la rama **por defecto** del repositorio, no
+  de la actual. Si la tarea necesita otra rama o tus cambios, usa `subir-base` y que la
+  tarea empiece con `git fetch origin nube-base-<tema> && git checkout FETCH_HEAD`, o
+  con `git checkout <rama>`.
+- **Responder.** `responder` solo funciona si registraste un `session_…`. Si no, prueba
+  a escribirle a la sesión con `SendMessage`, o pide al usuario que conteste en ese chat.
 
 ## Esperar sin gastar
 

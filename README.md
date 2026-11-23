@@ -21,11 +21,19 @@ Dile a tu Claude Code:
 Luego abre un chat nuevo. La primera vez, el plugin revisa que todo esté en orden y te
 dice qué falta.
 
-## Requisitos
+## Dos modos
 
-- **Claude Code** con la opción `--cloud` (`claude update` si es antigua) y la sesión
-  iniciada en una cuenta de claude.ai: `claude auth login`, una vez. Si falta, el
-  plugin te lo dice.
+| | Modo consola (recomendado) | Modo app |
+|---|---|---|
+| Requisito | Claude Code de consola con `--cloud` y `claude auth login` (una vez; el inicio de sesión dura unas semanas) | Nada más: usa la app de escritorio |
+| Permisos | Ninguno: lanza sin preguntar | La app pide permiso **en cada sesión** |
+| Código que ve la nube | Tu rama actual, tal como está en GitHub | La rama por defecto del repositorio |
+| Responder a la nube | Sí | Solo si se conoce el id de la sesión |
+
+El plugin elige solo: si la consola está lista, usa el modo consola; si no, el modo app,
+y te dice cómo pasarte al primero.
+
+## Requisitos
 - **Repositorio en GitHub** con Claude Code en la nube habilitado (claude.ai/code).
 - **`git` y `bash`.** En Windows, Git Bash, el mismo que usa Claude Code.
 
@@ -58,7 +66,7 @@ En un chat dentro de tu repositorio, por ejemplo:
 
 | Mensaje | Qué hacer |
 |---|---|
-| `FALTA: iniciar sesión` | `claude auth login` en una terminal |
+| `MODO=app` | Funciona, pero pedirá permiso por sesión. Para evitarlo: `claude auth login` en una terminal |
 | `native binary not installed` | Reinstalar Claude Code (instalación por npm a medias) |
 | `NO SE CREO LA SESION` | Leer el motivo que imprime; suele ser la sesión o el repositorio |
 | `TIEMPO AGOTADO` | Abrir el enlace de la sesión (`lista`): puede estar esperando un permiso |

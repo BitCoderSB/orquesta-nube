@@ -4,6 +4,8 @@
 #   revisar                         comprueba claude, sesion iniciada, remoto de GitHub y rama
 #   subir-base <tema>               sube tus cambios (con y sin commit) a nube-base-<tema> SIN tocar tu rama
 #   lanzar <nombre> <archivo|->     crea la sesion de nube; la tarea sale del archivo (o stdin)
+#   preparar <nombre> <archivo|->   MODO APP (sin consola): arma la tarea para lanzarla con start_session
+#   registrar <nombre> [session_id] MODO APP: anota la sesion creada con start_session
 #   vigilar <minutos> <nombre...>   espera hasta que la rama de alguna sesion cambie
 #   leer <nombre>                   baja la rama de resultados y muestra estado e informe
 #   responder <nombre> <mensaje>    manda un mensaje de seguimiento a esa sesion
@@ -51,15 +53,17 @@ quita_fila() {
 }
 
 cmd_revisar() {
-  local ok=1
+  local ok=1 cli=1
   if command -v claude >/dev/null; then
     local v; v="$(claude --version 2>&1 | head -1)"; echo "claude: $v"
-    case "$v" in *"native binary not installed"*) echo "FALTA: claude esta a medio instalar. Reinstalalo (npm: entra en node_modules/@anthropic-ai/claude-code y ejecuta node install.cjs)"; ok=0;; esac
-    claude --help 2>/dev/null | grep -q -- '--cloud' || { echo "FALTA: esta version de claude no tiene --cloud; actualizala con: claude update"; ok=0; }
-    if claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then echo "OK: sesion de claude.ai iniciada"
-    else echo "FALTA: iniciar sesion. El usuario debe ejecutar en una terminal: claude auth login"; ok=0; fi
+    case "$v" in *"native binary not installed"*) echo "SIN CONSOLA: claude esta a medio instalar (npm: entra en node_modules/@anthropic-ai/claude-code y ejecuta node install.cjs)"; cli=0;; esac
+    [ $cli = 1 ] && { claude --help 2>/dev/null | grep -q -- '--cloud' || { echo "SIN CONSOLA: esta version de claude no tiene --cloud (claude update)"; cli=0; }; }
+    if [ $cli = 1 ]; then
+      if claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then echo "OK: sesion de claude.ai iniciada en la consola"
+      else echo "SIN CONSOLA: falta iniciar sesion en la consola (claude auth login, una vez)"; cli=0; fi
+    fi
   else
-    echo "FALTA: el comando claude no esta en el PATH (instala Claude Code)"; ok=0
+    echo "SIN CONSOLA: el comando claude no esta instalado"; cli=0
   fi
   raiz >/dev/null
   local r url; r="$(remoto)"; url="$(git remote get-url "$r" 2>/dev/null)"
@@ -78,7 +82,33 @@ cmd_revisar() {
       echo "AVISO: el repositorio es PUBLICO: las ramas nube-* que se suban las puede ver cualquiera"
     fi;;
   esac
-  [ $ok = 1 ] && echo "LISTO" || exit 1
+  [ $ok = 1 ] || exit 1
+  if [ $cli = 1 ]; then echo "LISTO MODO=consola (sin permisos: usa lanzar)"
+  else echo "LISTO MODO=app (cada sesion pedira permiso al usuario: usa preparar + start_session + registrar. Para no pedirlo: instalar claude y claude auth login una vez)"; fi
+}
+
+cmd_preparar() { # modo app: arma la tarea completa y registra la sesion; el chat la lanza con start_session
+  local nombre="${1:-}" origen="${2:--}"; valida_nombre "$nombre"
+  if [ "$origen" != "-" ]; then
+    [ -r "$origen" ] || die "no puedo leer el archivo de la tarea: $origen"
+    origen="$(cd "$(dirname "$origen")" && pwd)/$(basename "$origen")"
+  fi
+  cd "$(raiz)" || exit 2
+  [ -n "$(fila "$nombre")" ] && die "ya hay una sesion llamada '$nombre' (usa otro nombre, o limpiar $nombre)"
+  local rama tmpd tf; rama="$(rama_de "$nombre")"; tmpd="$(estado_dir)/tmp"; mkdir -p "$tmpd"; tf="$tmpd/$nombre.tarea.txt"
+  { encabezado "$nombre" "$rama"; if [ "$origen" = "-" ]; then cat; else cat "$origen"; fi; } > "$tf"
+  [ -n "$(sed '1,/^TAREA:$/d' "$tf" | tr -d '[:space:]')" ] || die "la tarea esta vacia"
+  pon_fila "$nombre" "app" "$rama" "$(git ls-remote "$(remoto)" "refs/heads/$rama" 2>/dev/null | cut -f1)"
+  echo "PREPARADA nombre=$nombre rama=$rama"
+  echo "TAREA_COMPLETA=$tf"
+  echo "Siguiente: start_session (target cloud) con el contenido EXACTO de ese archivo como prompt; luego: registrar $nombre <session_id si lo tienes>"
+}
+
+cmd_registrar() { # modo app: guarda el id de la sesion creada con start_session (opcional)
+  local n="${1:-}" sid="${2:-app}"; valida_nombre "$n"; raiz >/dev/null
+  local f; f="$(fila "$n")"; [ -n "$f" ] || die "no conozco la sesion '$n' (primero: preparar)"
+  pon_fila "$n" "$sid" "$(echo "$f" | cut -f3)" "$(echo "$f" | cut -f4)"
+  echo "REGISTRADA $n sesion=$sid"
 }
 
 cmd_subir_base() {
@@ -201,6 +231,7 @@ cmd_responder() {
   raiz >/dev/null
   local f sid; f="$(fila "$n")"; [ -n "$f" ] || die "no conozco la sesion '$n'"
   sid="$(echo "$f" | cut -f2)"
+  case "$sid" in session_*|cse_*) ;; *) die "la sesion '$n' se lanzo desde la app y no tengo su id: respondele con SendMessage si puedes, o pide al usuario que conteste en ese chat";; esac
   claude -p "$*" --cloud "$sid" --output-format json
 }
 
@@ -249,7 +280,8 @@ cmd_limpiar_base() {
 c="${1:-}"; shift || true
 case "$c" in
   revisar) cmd_revisar "$@";; subir-base) cmd_subir_base "$@";; lanzar) cmd_lanzar "$@";;
+  preparar) cmd_preparar "$@";; registrar) cmd_registrar "$@";;
   vigilar) cmd_vigilar "$@";; leer) cmd_leer "$@";; responder) cmd_responder "$@";;
   lista) cmd_lista "$@";; limpiar) cmd_limpiar "$@";; limpiar-base) cmd_limpiar_base "$@";;
-  *) sed -n '2,14p' "${BASH_SOURCE[0]}"; exit 2;;
+  *) sed -n '2,16p' "${BASH_SOURCE[0]}"; exit 2;;
 esac
