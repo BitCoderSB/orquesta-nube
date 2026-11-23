@@ -30,19 +30,20 @@ dice qué falta.
    ```
    Si no existe el comando `claude`, regístralo en `~/.claude/settings.json`
    (`extraKnownMarketplaces` y `enabledPlugins`).
-2. **Deja lista la consola en este mismo chat**, sin esperar a otro.
-   - Comprueba `claude --version`.
-   - Si no existe o dice `native binary not installed`, instálalo:
-     `npm install -g @anthropic-ai/claude-code --include=optional`. Si sigue diciendo
-     `native binary not installed`, ejecuta `node install.cjs` dentro de
-     `$(npm root -g)/@anthropic-ai/claude-code`.
-   - Si no hay `npm`, dile al usuario que instale Node.js o Claude Code según la
-     documentación oficial.
-   - Si npm da `EACCES`, explícale que falta permiso para instalar globalmente.
-3. Comprueba `claude --version` otra vez.
-4. Pídele al usuario que abra **una terminal nueva**, ejecute `claude auth login` y pegue
-   él el código. Tú no escribes códigos ni contraseñas.
-5. Dile que abra un chat nuevo para que se cargue el skill `nube`.
+2. **Deja lista la consola en este mismo chat**, sin esperar a otro. Busca un `claude`
+   que funcione, en este orden:
+   - el del PATH (`claude --version`);
+   - en Windows, el que trae la app de escritorio, el más nuevo de
+     `%LOCALAPPDATA%\Claude-Data\claude_*\claude-code\*\*\claude.exe`.
+
+   Si hay alguno, **no instales nada**. Solo si no hay ninguno, instálalo con
+   `npm install -g @anthropic-ai/claude-code --include=optional`.
+3. Comprueba si ya tiene la sesión iniciada: `<ese claude> auth status` debe decir
+   `"loggedIn": true`. Si no la tiene, pásale al usuario el comando exacto para que lo
+   ejecute en una terminal nueva y pegue él el código. Tú no escribes códigos ni
+   contraseñas. El comando es `claude auth login`, o con la ruta del de la app, en
+   PowerShell: `& "<ruta>\claude.exe" auth login`.
+4. Dile que abra un chat nuevo para que se cargue el skill `nube`.
 
 ## Dos modos
 

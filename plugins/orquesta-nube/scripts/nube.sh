@@ -53,18 +53,33 @@ quita_fila() {
   desbloquear
 }
 
+claude_bin() { # ruta del claude a usar: el del PATH o, si no hay, el que trae la app de escritorio
+  if command -v claude >/dev/null && claude --version 2>&1 | head -1 | grep -qv 'native binary not installed'; then echo claude; return 0; fi
+  if [ "$(so)" = windows ] && [ -n "${LOCALAPPDATA:-}" ]; then
+    local b; b="$(ls -d "$LOCALAPPDATA"/Claude-Data/claude_*/claude-code/*/*/claude.exe 2>/dev/null | sort -V | tail -1)"
+    [ -n "$b" ] && { echo "$b"; return 0; }
+  fi
+  return 1
+}
+
+comando_login() { # como debe escribir el usuario el inicio de sesion, segun el claude que hay
+  local b="$1"
+  if [ "$b" = claude ]; then echo "claude auth login"
+  else echo "& \"$(cygpath -w "$b" 2>/dev/null || echo "$b")\" auth login   (en PowerShell)"; fi
+}
+
 cmd_revisar() {
-  local ok=1 cli=1
-  if command -v claude >/dev/null; then
-    local v; v="$(claude --version 2>&1 | head -1)"; echo "claude: $v"
-    case "$v" in *"native binary not installed"*) echo "SIN CONSOLA: claude esta a medio instalar (npm: entra en node_modules/@anthropic-ai/claude-code y ejecuta node install.cjs)"; cli=0;; esac
-    [ $cli = 1 ] && { claude --help 2>/dev/null | grep -q -- '--cloud' || { echo "SIN CONSOLA: esta version de claude no tiene --cloud (claude update)"; cli=0; }; }
+  local ok=1 cli=1 CL
+  if CL="$(claude_bin)"; then
+    [ "$CL" != claude ] && echo "OK: uso el claude que trae la app de escritorio: $CL"
+    echo "claude: $("$CL" --version 2>&1 | head -1)"
+    "$CL" --help 2>/dev/null | grep -q -- '--cloud' || { echo "SIN CONSOLA: esta version de claude no tiene --cloud (claude update)"; cli=0; }
     if [ $cli = 1 ]; then
-      if claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then echo "OK: sesion de claude.ai iniciada en la consola"
-      else echo "SIN CONSOLA: falta iniciar sesion en la consola (claude auth login, una vez)"; cli=0; fi
+      if "$CL" auth status 2>/dev/null | grep -q '"loggedIn": *true'; then echo "OK: sesion de claude.ai iniciada en la consola"
+      else echo "SIN CONSOLA: falta iniciar sesion UNA vez. El usuario, en una terminal nueva: $(comando_login "$CL")"; cli=0; fi
     fi
   else
-    echo "SIN CONSOLA: el comando claude no esta instalado (se instala con: instalar)"; cli=0
+    echo "SIN CONSOLA: no hay comando claude ni el de la app (se instala con: instalar)"; cli=0
   fi
   raiz >/dev/null
   local r url; r="$(remoto)"; url="$(git remote get-url "$r" 2>/dev/null)"
@@ -85,13 +100,14 @@ cmd_revisar() {
   esac
   [ $ok = 1 ] || exit 1
   if [ $cli = 1 ]; then echo "LISTO MODO=consola (sin permisos: usa lanzar)"
-  else echo "LISTO MODO=app (cada sesion pedira permiso al usuario: usa preparar + start_session + registrar. Para no pedirlo: instalar claude y claude auth login una vez)"; fi
+  else echo "LISTO MODO=app (cada sesion pedira permiso al usuario: usa preparar + start_session + registrar. Para no pedirlo: el inicio de sesion de arriba, una vez)"; fi
 }
 
 claude_ok() { command -v claude >/dev/null && claude --version 2>&1 | head -1 | grep -qv 'native binary not installed'; }
 
-cmd_instalar() { # instala el comando claude de consola (necesario para el modo sin permisos)
-  if claude_ok; then echo "YA INSTALADO: $(claude --version 2>&1 | head -1)"; return 0; fi
+cmd_instalar() { # instala el comando claude de consola (solo si no hay ninguno, ni el de la app)
+  local CL
+  if CL="$(claude_bin)"; then echo "YA INSTALADO (no hace falta instalar): $("$CL" --version 2>&1 | head -1) en $CL"; echo "Falta, si revisar lo pide: $(comando_login "$CL")"; return 0; fi
   command -v npm >/dev/null || { echo "SIN NPM: instala Node.js (que trae npm) o Claude Code segun su documentacion oficial, y vuelve a ejecutar: instalar"; exit 1; }
   echo "Instalando Claude Code de consola con npm (tarda un poco)..."
   local salida; salida="$(npm install -g @anthropic-ai/claude-code --include=optional 2>&1)"; echo "$salida" | tail -3
@@ -185,6 +201,7 @@ cmd_lanzar() {
   if [ -n "$actual" ] && ! git ls-remote --exit-code --heads "$r" "$actual" >/dev/null 2>&1; then
     die "tu rama '$actual' no existe en GitHub y la nube no podria clonarla. Sube la rama, o usa subir-base y empieza la tarea con git fetch origin nube-base-<tema> && git checkout FETCH_HEAD (cambiandote antes a una rama que si este en GitHub)"
   fi
+  local CL; CL="$(claude_bin)" || die "no hay comando claude (ni el de la app): usa el modo app, o instalar"
   local tmpd; tmpd="$(estado_dir)/tmp"; mkdir -p "$tmpd"
   local cuerpo="$tmpd/$nombre.cuerpo.txt" tf="$tmpd/$nombre.tarea.txt" log="$tmpd/$nombre.lanzar.log"
   if [ "$origen" = "-" ]; then cat > "$cuerpo"; else cat "$origen" > "$cuerpo"; fi
@@ -196,17 +213,18 @@ cmd_lanzar() {
     windows)
       # Windows PowerShell 5.1 rompe las comillas dobles al pasar argumentos: solo aqui se cambian por simples.
       tr '"' "'" < "$tf" > "$tf.w" && mv "$tf.w" "$tf"
-      local ps1 wtf wlog wcwd
+      local ps1 wtf wlog wcwd wcl
       ps1="$(cygpath -w "$DIR/lanzar-windows.ps1")"; wtf="$(cygpath -w "$tf")"; wlog="$(cygpath -w "$log")"; wcwd="$(cygpath -w "$PWD")"
-      ps1="${ps1//\'/\'\'}"; wtf="${wtf//\'/\'\'}"; wlog="${wlog//\'/\'\'}"; wcwd="${wcwd//\'/\'\'}"
+      if [ "$CL" = claude ]; then wcl=claude; else wcl="$(cygpath -w "$CL")"; fi
+      ps1="${ps1//\'/\'\'}"; wtf="${wtf//\'/\'\'}"; wlog="${wlog//\'/\'\'}"; wcwd="${wcwd//\'/\'\'}"; wcl="${wcl//\'/\'\'}"
       # Espera como mucho 3 minutos: si la consola oculta se queda esperando algo, se cierra.
-      powershell.exe -NoProfile -Command "\$p = Start-Process powershell -WindowStyle Minimized -PassThru -WorkingDirectory '$wcwd' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"$ps1\"','-TareaArchivo','\"$wtf\"','-Log','\"$wlog\"'; if (-not \$p.WaitForExit(180000)) { Get-CimInstance Win32_Process | Where-Object { \$_.ParentProcessId -eq \$p.Id } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }; Stop-Process -Id \$p.Id -Force -ErrorAction SilentlyContinue; exit 124 }; exit \$p.ExitCode"
+      powershell.exe -NoProfile -Command "\$p = Start-Process powershell -WindowStyle Minimized -PassThru -WorkingDirectory '$wcwd' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"$ps1\"','-TareaArchivo','\"$wtf\"','-Log','\"$wlog\"','-Claude','\"$wcl\"'; if (-not \$p.WaitForExit(180000)) { Get-CimInstance Win32_Process | Where-Object { \$_.ParentProcessId -eq \$p.Id } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }; Stop-Process -Id \$p.Id -Force -ErrorAction SilentlyContinue; exit 124 }; exit \$p.ExitCode"
       [ $? = 124 ] && colgado=1 ;;
     mac)
-      script -q "$log" bash -c 'claude --cloud "$(cat "$1")"' _ "$tf" </dev/null >/dev/null &
+      script -q "$log" bash -c '"$2" --cloud "$(cat "$1")"' _ "$tf" "$CL" </dev/null >/dev/null &
       espera_o_corta $! 180 || colgado=1 ;;
     linux)
-      TF="$tf" script -qec 'claude --cloud "$(cat "$TF")"' "$log" </dev/null >/dev/null &
+      TF="$tf" CLB="$CL" script -qec '"$CLB" --cloud "$(cat "$TF")"' "$log" </dev/null >/dev/null &
       espera_o_corta $! 180 || colgado=1 ;;
   esac
   if [ "${colgado:-0}" = 1 ]; then
@@ -277,7 +295,8 @@ cmd_responder() {
   local f sid; f="$(fila "$n")"; [ -n "$f" ] || die "no conozco la sesion '$n'"
   sid="$(echo "$f" | cut -f2)"
   case "$sid" in session_*|cse_*) ;; *) die "la sesion '$n' se lanzo desde la app y no tengo su id: respondele con SendMessage si puedes, o pide al usuario que conteste en ese chat";; esac
-  claude -p "$*" --cloud "$sid" --output-format json
+  local CL; CL="$(claude_bin)" || die "no hay comando claude"
+  "$CL" -p "$*" --cloud "$sid" --output-format json
 }
 
 cmd_lista() {

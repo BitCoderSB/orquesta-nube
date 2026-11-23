@@ -36,11 +36,13 @@ abajo).
        cada sesión.
 
      Si elige dejarlo listo, **en este orden**:
-     1. Si `revisar` dijo `no esta instalado` o `a medio instalar`, ejecuta
-        `NUBE instalar`. **No pidas el login antes de que diga `INSTALADO` o
-        `YA INSTALADO`**: sin el comando, `claude auth login` da «no se reconoce».
-     2. Pídele que abra una terminal **nueva**, ejecute `claude auth login` y pegue él
-        el código. Tú nunca escribes códigos ni contraseñas.
+     1. **Comando de login.** Si `revisar` dijo `falta iniciar sesion`, ya te dio el
+        comando exacto. En Windows, sin `claude` en el PATH, suele ser el `claude.exe`
+        que trae la app de escritorio: **no hace falta instalar nada**. Pásale al
+        usuario ese comando tal cual para que lo ejecute en una terminal nueva y pegue
+        él el código. Tú nunca escribes códigos ni contraseñas.
+     2. **Solo si no hay ningún `claude`.** Si `revisar` dijo `no hay comando claude
+        ni el de la app`, ejecuta `NUBE instalar`, y después el paso 1.
      3. Ejecuta otra vez `NUBE revisar` hasta que diga `MODO=consola`.
    - Una línea `FALTA`: no se puede seguir; díselo al usuario tal cual.
    - Si dice que el repositorio es **público**, avísale una vez: lo que se suba a las
