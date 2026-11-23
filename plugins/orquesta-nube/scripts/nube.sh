@@ -94,7 +94,8 @@ cmd_instalar() { # instala el comando claude de consola (necesario para el modo 
   if claude_ok; then echo "YA INSTALADO: $(claude --version 2>&1 | head -1)"; return 0; fi
   command -v npm >/dev/null || { echo "SIN NPM: instala Node.js (que trae npm) o Claude Code segun su documentacion oficial, y vuelve a ejecutar: instalar"; exit 1; }
   echo "Instalando Claude Code de consola con npm (tarda un poco)..."
-  npm install -g @anthropic-ai/claude-code --include=optional 2>&1 | tail -3
+  local salida; salida="$(npm install -g @anthropic-ai/claude-code --include=optional 2>&1)"; echo "$salida" | tail -3
+  echo "$salida" | grep -q 'EACCES' && echo "=> npm no tiene permiso para instalar global. Instala Claude Code con su instalador oficial (documentacion de Claude Code) o configura npm sin sudo, y reintenta."
   if ! claude_ok; then # npm a veces deja el programa a medias: se completa con su instalador
     local d; d="$(npm root -g 2>/dev/null)/@anthropic-ai/claude-code"
     [ -f "$d/install.cjs" ] && ( cd "$d" && node install.cjs 2>&1 | tail -2 )
@@ -162,6 +163,15 @@ TAREA:
 EOF
 }
 
+espera_o_corta() { # pid segundos -> 0 si termino, 1 si hubo que cortarlo
+  local pid="$1" t=0
+  while kill -0 "$pid" 2>/dev/null; do
+    [ $t -ge "$2" ] && { pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null; return 1; }
+    sleep 1; t=$((t+1))
+  done
+  wait "$pid" 2>/dev/null; return 0
+}
+
 cmd_lanzar() {
   local nombre="${1:-}" origen="${2:--}"; valida_nombre "$nombre"
   if [ "$origen" != "-" ]; then
@@ -171,12 +181,17 @@ cmd_lanzar() {
   cd "$(raiz)" || exit 2
   [ -n "$(fila "$nombre")" ] && die "ya hay una sesion llamada '$nombre' (usa otro nombre, o limpiar $nombre)"
   local r rama; r="$(remoto)"; rama="$(rama_de "$nombre")"
+  local actual; actual="$(git symbolic-ref --short -q HEAD)"
+  if [ -n "$actual" ] && ! git ls-remote --exit-code --heads "$r" "$actual" >/dev/null 2>&1; then
+    die "tu rama '$actual' no existe en GitHub y la nube no podria clonarla. Sube la rama, o usa subir-base y empieza la tarea con git fetch origin nube-base-<tema> && git checkout FETCH_HEAD (cambiandote antes a una rama que si este en GitHub)"
+  fi
   local tmpd; tmpd="$(estado_dir)/tmp"; mkdir -p "$tmpd"
   local cuerpo="$tmpd/$nombre.cuerpo.txt" tf="$tmpd/$nombre.tarea.txt" log="$tmpd/$nombre.lanzar.log"
   if [ "$origen" = "-" ]; then cat > "$cuerpo"; else cat "$origen" > "$cuerpo"; fi
   [ -n "$(tr -d '[:space:]' < "$cuerpo")" ] || die "la tarea esta vacia"
   { encabezado "$nombre" "$rama"; cat "$cuerpo"; } > "$tf"
   rm -f "$log"
+  local colgado=0
   case "$(so)" in
     windows)
       # Windows PowerShell 5.1 rompe las comillas dobles al pasar argumentos: solo aqui se cambian por simples.
@@ -186,18 +201,26 @@ cmd_lanzar() {
       ps1="${ps1//\'/\'\'}"; wtf="${wtf//\'/\'\'}"; wlog="${wlog//\'/\'\'}"; wcwd="${wcwd//\'/\'\'}"
       # Espera como mucho 3 minutos: si la consola oculta se queda esperando algo, se cierra.
       powershell.exe -NoProfile -Command "\$p = Start-Process powershell -WindowStyle Minimized -PassThru -WorkingDirectory '$wcwd' -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','\"$ps1\"','-TareaArchivo','\"$wtf\"','-Log','\"$wlog\"'; if (-not \$p.WaitForExit(180000)) { Get-CimInstance Win32_Process | Where-Object { \$_.ParentProcessId -eq \$p.Id } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }; Stop-Process -Id \$p.Id -Force -ErrorAction SilentlyContinue; exit 124 }; exit \$p.ExitCode"
-      [ $? = 124 ] && echo "AVISO: claude --cloud no termino en 3 minutos (se quedo esperando algo) y se cerro" ;;
+      [ $? = 124 ] && colgado=1 ;;
     mac)
-      script -q "$log" bash -c 'claude --cloud "$(cat "$1")"' _ "$tf" </dev/null >/dev/null ;;
+      script -q "$log" bash -c 'claude --cloud "$(cat "$1")"' _ "$tf" </dev/null >/dev/null &
+      espera_o_corta $! 180 || colgado=1 ;;
     linux)
-      TF="$tf" script -qec 'claude --cloud "$(cat "$TF")"' "$log" </dev/null >/dev/null ;;
+      TF="$tf" script -qec 'claude --cloud "$(cat "$TF")"' "$log" </dev/null >/dev/null &
+      espera_o_corta $! 180 || colgado=1 ;;
   esac
+  if [ "${colgado:-0}" = 1 ]; then
+    echo "AVISO: claude --cloud no termino en 3 minutos y se cerro: estaba esperando una respuesta (por ejemplo, elegir entorno o confiar en la carpeta)."
+    echo "=> Que el usuario ejecute UNA vez, en una terminal visible y en esta carpeta: claude --cloud \"prueba\" , conteste lo que pregunte, y luego reintenta."
+  fi
   [ -f "$log" ] || die "no se genero el registro del lanzamiento"
   local sid; sid="$(grep -ao 'claude\.ai/code/session_[A-Za-z0-9]*' "$log" | head -1 | sed 's#.*/##')"
   if [ -z "$sid" ]; then
     echo "NO SE CREO LA SESION. Salida de claude:"
     tr -d '\r' < "$log" | grep -aEv '^(\*\*\*|Hora|Nombre|Usuario|M.quina|Aplicaci|Id\.|PS|Build|CLR|WSMan|Serializ|Inicio|Fin|Start|End|Username|RunAs|Configuration|Machine|Host Application|Process ID)' | grep -av '^[[:space:]]*$' | head -20
-    grep -aEqi 'sign-in|login|authenticat' "$log" && echo "=> El usuario debe ejecutar: claude auth login"
+    if grep -aEqi 'sign-in|login|authenticat' "$log"; then echo "=> El usuario debe ejecutar: claude auth login"
+    elif grep -aEqi 'github|repositor|environment|entorno' "$log"; then echo "=> Parece que falta conectar GitHub o crear el entorno: el usuario debe abrir claude.ai/code una vez y conectar este repositorio"
+    else echo "=> Si no queda claro, que el usuario ejecute una vez en una terminal visible: claude --cloud \"prueba\""; fi
     exit 1
   fi
   local previo; previo="$(git ls-remote "$r" "refs/heads/$rama" 2>/dev/null | cut -f1)"
