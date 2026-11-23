@@ -5,13 +5,13 @@
   },
   "metadata": {
     "description": "Trabajo en la nube orquestado desde tu chat local de Claude Code.",
-    "version": "0.4.2"
+    "version": "0.4.3"
   },
   "plugins": [
     {
       "name": "orquesta-nube",
       "description": "Lanza, vigila y responde a sesiones de Claude Code en la nube desde tu chat local, sin permisos ni clics.",
-      "version": "0.4.2",
+      "version": "0.4.3",
       "author": {
         "name": "BitCoderSB"
       },

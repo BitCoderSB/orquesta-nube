@@ -17,7 +17,11 @@ No esperes a otro chat: el usuario quiere que funcione al terminar la instalaci�
 2. Si dice `falta iniciar sesion`, dale al usuario el comando exacto que imprime: es
    `claude auth login`, o `& "<ruta>\claude.exe" auth login` con el `claude` de la app.
    Que lo ejecute en una terminal nueva y pegue él el código. Tú no escribes códigos.
-3. Cuando diga que ya lo hizo, repite `revisar` hasta que salga `MODO=consola`.
+3. Si dice `falta la primera apertura de claude`, pásale el comando que imprime, tal
+   cual. Abre `claude` a la vista una vez para que el usuario conteste la bienvenida y
+   su **elección de privacidad**. Esa decisión es suya: nunca la contestes ni la
+   saltes tú.
+4. Cuando diga que ya lo hizo, repite `revisar` hasta que salga `MODO=consola`.
 4. Si `revisar` dice `no hay comando claude ni el de la app`, ejecuta
    `nube.sh instalar` y vuelve al paso 2.
 5. Termina diciéndole que, desde el próximo chat, basta con pedir algo «en la nube».

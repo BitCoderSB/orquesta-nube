@@ -71,7 +71,12 @@ comando_login() { # como debe escribir el usuario el inicio de sesion, segun el 
 comando_cloud_prueba() { # comando para que el usuario abra claude --cloud a la vista y conteste lo de primera vez
   local b="$1"
   if [ "$b" = claude ]; then echo "claude --cloud \"prueba\""
-  else echo "& \"$(cygpath -w "$b" 2>/dev/null || echo "$b")\" --cloud \"prueba\"   (en PowerShell)"; fi
+  else echo '& (Get-ChildItem "$env:LOCALAPPDATA\Claude-Data\claude_*\claude-code\*\*\claude.exe" | Sort-Object LastWriteTime | Select-Object -Last 1).FullName --cloud "prueba"   (en PowerShell, en la carpeta del proyecto)'; fi
+}
+
+primera_vez_pendiente() { # true si claude nunca se abrio a la vista en esta PC (bienvenida y eleccion de privacidad sin contestar)
+  local f="${CLAUDE_CONFIG_DIR:-$HOME}/.claude.json"
+  ! grep -q '"hasCompletedOnboarding": *true' "$f" 2>/dev/null
 }
 
 cmd_revisar() {
@@ -83,6 +88,9 @@ cmd_revisar() {
     if [ $cli = 1 ]; then
       if "$CL" auth status 2>/dev/null | grep -q '"loggedIn": *true'; then echo "OK: sesion de claude.ai iniciada en la consola"
       else echo "SIN CONSOLA: falta iniciar sesion UNA vez. El usuario, en una terminal nueva: $(comando_login "$CL")"; cli=0; fi
+      if [ $cli = 1 ] && primera_vez_pendiente; then
+        echo "SIN CONSOLA: falta la primera apertura de claude en esta PC (estilo de colores y eleccion de privacidad: decide el usuario, una sola vez). El usuario pega en una terminal: $(comando_cloud_prueba "$CL")  y contesta lo que pregunte"; cli=0
+      fi
     fi
   else
     echo "SIN CONSOLA: no hay comando claude ni el de la app (se instala con: instalar)"; cli=0
@@ -208,6 +216,7 @@ cmd_lanzar() {
     die "tu rama '$actual' no existe en GitHub y la nube no podria clonarla. Sube la rama, o usa subir-base y empieza la tarea con git fetch origin nube-base-<tema> && git checkout FETCH_HEAD (cambiandote antes a una rama que si este en GitHub)"
   fi
   local CL; CL="$(claude_bin)" || die "no hay comando claude (ni el de la app): usa el modo app, o instalar"
+  primera_vez_pendiente && die "falta la primera apertura de claude en esta PC (la contesta el usuario una vez). Que pegue en una terminal: $(comando_cloud_prueba "$CL")"
   local tmpd; tmpd="$(estado_dir)/tmp"; mkdir -p "$tmpd"
   local cuerpo="$tmpd/$nombre.cuerpo.txt" tf="$tmpd/$nombre.tarea.txt" log="$tmpd/$nombre.lanzar.log"
   if [ "$origen" = "-" ]; then cat > "$cuerpo"; else cat "$origen" > "$cuerpo"; fi
