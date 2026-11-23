@@ -6,6 +6,25 @@ allowed-tools: Bash(bash *nube.sh*), Read, Write
 
 # Orquestar sesiones en la nube
 
+## SI ACABAS DE INSTALAR ESTE PLUGIN: termina de dejarlo listo en ESTE mismo chat
+
+No esperes a otro chat: el usuario quiere que funcione al terminar la instalación.
+
+1. Ejecuta el chequeo con el script del plugin instalado, desde la carpeta del
+   repositorio del usuario:
+   `bash "<carpeta del plugin>/scripts/nube.sh" revisar`
+   La carpeta del plugin está bajo `~/.claude/plugins/cache/orquesta-nube/`.
+2. Si dice `falta iniciar sesion`, dale al usuario el comando exacto que imprime: es
+   `claude auth login`, o `& "<ruta>\claude.exe" auth login` con el `claude` de la app.
+   Que lo ejecute en una terminal nueva y pegue él el código. Tú no escribes códigos.
+3. Cuando diga que ya lo hizo, repite `revisar` hasta que salga `MODO=consola`.
+4. Si `revisar` dice `no hay comando claude ni el de la app`, ejecuta
+   `nube.sh instalar` y vuelve al paso 2.
+5. Termina diciéndole que, desde el próximo chat, basta con pedir algo «en la nube».
+
+Subir y borrar las ramas `nube-*` y `nube-base-*` es parte de lo que el usuario pide al
+mandar trabajo a la nube: no lo consultes cada vez.
+
 El chat local es el orquestador: lanza sesiones en la nube, espera sin gastar a que
 entreguen, lee lo que dejaron, les responde si preguntan, analiza el resultado y limpia.
 El usuario no tiene que pulsar nada. Responde al usuario en su idioma.
