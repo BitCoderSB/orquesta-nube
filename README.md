@@ -28,7 +28,7 @@ dice qué falta.
 | Requisito | Claude Code de consola con `--cloud` y `claude auth login` (una vez; el inicio de sesión dura unas semanas) | Nada más: usa la app de escritorio |
 | Permisos | Ninguno: lanza sin preguntar | La app pide permiso **en cada sesión** |
 | Código que ve la nube | Tu rama actual, tal como está en GitHub | La rama por defecto del repositorio |
-| Responder a la nube | Sí | Solo si se conoce el id de la sesión |
+| Responder a la nube | Sí, solo | Necesita tu aprobación en esa sesión |
 
 El plugin elige solo: si la consola está lista, usa el modo consola; si no, el modo app,
 y te dice cómo pasarte al primero.

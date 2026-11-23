@@ -106,8 +106,13 @@ Diferencias con el modo consola:
   de la actual. Si la tarea necesita otra rama o tus cambios, usa `subir-base` y que la
   tarea empiece con `git fetch origin nube-base-<tema> && git checkout FETCH_HEAD`, o
   con `git checkout <rama>`.
-- **Responder.** `responder` solo funciona si registraste un `session_…`. Si no, prueba
-  a escribirle a la sesión con `SendMessage`, o pide al usuario que conteste en ese chat.
+- **Responder.** En modo app, responder a la nube necesita al usuario. Se midió así:
+  `SendMessage` solo ve las sesiones de nube con Remote Control encendido, y aun así el
+  mensaje queda **retenido** en la sesión de nube hasta que el usuario lo aprueba,
+  porque los modos de permiso son distintos. Por eso, en modo app, escribe tareas que no
+  necesiten preguntar: deja las decisiones tomadas en la tarea. Si aun así una sesión
+  pregunta, dile al usuario qué responder en ese chat, o que apruebe el mensaje
+  retenido.
 
 ## Esperar sin gastar
 
