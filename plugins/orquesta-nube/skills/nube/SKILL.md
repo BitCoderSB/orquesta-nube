@@ -107,9 +107,10 @@ subiste una rama `nube-base-<tema>` para la tarea, bórrala también al final co
 `NUBE limpiar-base nube-base-<tema>`. No limpies una sesión que está en
 `ESTADO: PREGUNTA` o que sigue trabajando.
 
-Los chats de nube no se pueden archivar desde la consola: quedan en claude.ai/code. Si el
-usuario pregunta, dile que puede archivarlos ahí, y que sus nombres empiezan por
-«nube».
+Los chats de nube no se archivan solos. Archivarlos pide permiso dentro de la propia
+sesión de nube, y no se puede conceder desde aquí. Se archivan a mano en claude.ai/code.
+No le pidas al chat de nube que se archive ni que se ponga título: eso lo deja parado,
+esperando un permiso que nadie da.
 
 ## Límites que debes contar si vienen al caso
 

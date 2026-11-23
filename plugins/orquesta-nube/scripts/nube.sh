@@ -13,7 +13,6 @@ set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 die() { echo "ERROR: $*" >&2; exit 2; }
-
 raiz() { git rev-parse --show-toplevel 2>/dev/null || die "no estas dentro de un repositorio git"; }
 estado_dir() { local d; d="$(git rev-parse --git-common-dir)/nube"; mkdir -p "$d"; echo "$d"; }
 estado_file() { echo "$(estado_dir)/sesiones.tsv"; }
@@ -83,7 +82,7 @@ cmd_lanzar() {
       TF="$tf" script -qec 'claude --cloud "$(cat "$TF")"' "$log" </dev/null >/dev/null ;;
   esac
   [ -f "$log" ] || die "no se genero el registro del lanzamiento"
-  local sid; sid="$(grep -ao 'session_[A-Za-z0-9]*' "$log" | head -1)"
+  local sid; sid="$(grep -ao 'claude\.ai/code/session_[A-Za-z0-9]*' "$log" | head -1 | sed 's#.*/##')"
   if [ -z "$sid" ]; then
     echo "NO SE CREO LA SESION. Salida de claude:"; tr -d '\r' < "$log" | grep -av '^\*\*\*\|^Hora\|^Nombre\|^Usuario\|^M.quina\|^Aplicaci\|^Id\.\|^PS\|^Build\|^CLR\|^WSMan\|^Serializ\|^Inicio\|^Fin\|^Start\|^End\|^Username\|^RunAs\|^Configuration\|^Machine\|^Host Application\|^Process ID' | sed '/^\s*$/d' | head -20
     grep -aqi 'sign-in\|login\|authenticat' "$log" && echo "=> El usuario debe ejecutar: claude auth login"
