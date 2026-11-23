@@ -68,6 +68,12 @@ comando_login() { # como debe escribir el usuario el inicio de sesion, segun el 
   else echo "& \"$(cygpath -w "$b" 2>/dev/null || echo "$b")\" auth login   (en PowerShell)"; fi
 }
 
+comando_cloud_prueba() { # comando para que el usuario abra claude --cloud a la vista y conteste lo de primera vez
+  local b="$1"
+  if [ "$b" = claude ]; then echo "claude --cloud \"prueba\""
+  else echo "& \"$(cygpath -w "$b" 2>/dev/null || echo "$b")\" --cloud \"prueba\"   (en PowerShell)"; fi
+}
+
 cmd_revisar() {
   local ok=1 cli=1 CL
   if CL="$(claude_bin)"; then
@@ -228,8 +234,9 @@ cmd_lanzar() {
       espera_o_corta $! 180 || colgado=1 ;;
   esac
   if [ "${colgado:-0}" = 1 ]; then
-    echo "AVISO: claude --cloud no termino en 3 minutos y se cerro: estaba esperando una respuesta (por ejemplo, elegir entorno o confiar en la carpeta)."
-    echo "=> Que el usuario ejecute UNA vez, en una terminal visible y en esta carpeta: claude --cloud \"prueba\" , conteste lo que pregunte, y luego reintenta."
+    echo "AVISO: claude --cloud no termino en 3 minutos y se cerro: se quedo esperando una respuesta. Lo ultimo que mostro:"
+    [ -f "$log" ] && tr -d '\r' < "$log" | sed 's/\x1b\[[0-9;?]*[A-Za-z]//g' | grep -av '^[[:space:]]*$' | grep -aEv '^(\*\*\*|Hora|Nombre|Usuario|M.quina|Aplicaci|Id\.|PS|Build|CLR|WSMan|Serializ|Inicio|Fin)' | tail -15
+    echo "=> Que el usuario ejecute UNA vez, en una terminal visible y en esta carpeta: $(comando_cloud_prueba "$CL") , conteste lo que pregunte (es la primera vez de esa consola) y luego reintenta."
   fi
   [ -f "$log" ] || die "no se genero el registro del lanzamiento"
   local sid; sid="$(grep -ao 'claude\.ai/code/session_[A-Za-z0-9]*' "$log" | head -1 | sed 's#.*/##')"
@@ -238,7 +245,7 @@ cmd_lanzar() {
     tr -d '\r' < "$log" | grep -aEv '^(\*\*\*|Hora|Nombre|Usuario|M.quina|Aplicaci|Id\.|PS|Build|CLR|WSMan|Serializ|Inicio|Fin|Start|End|Username|RunAs|Configuration|Machine|Host Application|Process ID)' | grep -av '^[[:space:]]*$' | head -20
     if grep -aEqi 'sign-in|login|authenticat' "$log"; then echo "=> El usuario debe ejecutar: claude auth login"
     elif grep -aEqi 'github|repositor|environment|entorno' "$log"; then echo "=> Parece que falta conectar GitHub o crear el entorno: el usuario debe abrir claude.ai/code una vez y conectar este repositorio"
-    else echo "=> Si no queda claro, que el usuario ejecute una vez en una terminal visible: claude --cloud \"prueba\""; fi
+    else echo "=> Si no queda claro, que el usuario ejecute una vez en una terminal visible: $(comando_cloud_prueba "$CL")"; fi
     exit 1
   fi
   local previo; previo="$(git ls-remote "$r" "refs/heads/$rama" 2>/dev/null | cut -f1)"
