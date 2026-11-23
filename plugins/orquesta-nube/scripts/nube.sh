@@ -7,7 +7,8 @@
 #   lanzar <nombre> <archivo|->     crea la sesion de nube; la tarea sale del archivo (o stdin)
 #   preparar <nombre> <archivo|->   MODO APP (sin consola): arma la tarea para lanzarla con start_session
 #   registrar <nombre> [session_id] MODO APP: anota la sesion creada con start_session
-#   vigilar <minutos> <nombre...>   espera hasta que la rama de alguna sesion cambie
+#   vigilar <minutos> [--latido M] <nombre...>  espera un cambio; avisa SIN SENAL si en M min (60) nada sube
+#   estado <nombre>                 ultimo ESTADO subido y hace cuantos minutos
 #   leer <nombre>                   baja la rama de resultados y muestra estado e informe
 #   responder <nombre> <mensaje>    manda un mensaje de seguimiento a esa sesion
 #   lista                           sesiones lanzadas desde este repositorio
@@ -185,7 +186,8 @@ Eres una sesion de trabajo en la nube controlada por OTRA sesion de Claude (el o
 - No hagas preguntas en el chat: nadie las lee.
 - Todo lo que entregues va en la carpeta .nube/ de la raiz del repositorio. Escribe SIEMPRE .nube/ESTADO.md (la primera linea exactamente una de: ESTADO: TERMINADO / ESTADO: PREGUNTA / ESTADO: ERROR) y .nube/INFORME.md (resultado, con salidas reales de comandos; sin inventar numeros).
 - Si necesitas una decision para seguir, escribe la pregunta en .nube/ESTADO.md con ESTADO: PREGUNTA, sube y detente: el orquestador te respondera con un mensaje nuevo; entonces sigue y vuelve a subir.
-- Sube solo cuando entregues (TERMINADO, PREGUNTA o ERROR), no avances parciales.
+- Latido: si la tarea dura mas de 30 minutos, sube un avance al menos cada 30 minutos con la primera linea ESTADO: EN CURSO y en .nube/INFORME.md lo hecho hasta ahi. Asi el orquestador sabe que sigues viva.
+- Al acabar, la primera linea tiene que ser ESTADO: TERMINADO (o ERROR). Nunca termines dejando EN CURSO.
 - Para entregar (siempre, tambien si algo falla): git checkout -B $2 ; git add -f .nube ; (si la tarea pidio cambiar codigo: git add <esos archivos>) ; git commit -m 'nube: $1' ; git push -f origin $2 . No subas nada mas ni toques otras ramas.
 - No cambies codigo del proyecto salvo que la tarea lo pida expresamente. Nunca subas secretos (.env, claves, tokens).
 
@@ -266,12 +268,16 @@ cmd_lanzar() {
 }
 
 cmd_vigilar() {
-  local minutos="${1:-90}"; shift || true; [ $# -gt 0 ] || die "uso: vigilar <minutos> <nombre...>"
-  [[ "$minutos" =~ ^[0-9]+$ ]] || die "minutos invalidos: $minutos"
+  local minutos="${1:-90}"; shift || true
+  local latido=60   # minutos sin ninguna subida antes de avisar SIN SENAL (0 = no avisar)
+  if [ "${1:-}" = "--latido" ]; then latido="${2:-60}"; shift 2 || true; fi
+  [ $# -gt 0 ] || die "uso: vigilar <minutos> [--latido <min>] <nombre...>"
+  [[ "$minutos" =~ ^[0-9]+$ && "$latido" =~ ^[0-9]+$ ]] || die "minutos invalidos"
   raiz >/dev/null
   local n; for n in "$@"; do [ -n "$(fila "$n")" ] || die "no conozco la sesion '$n' (usa: lista)"; done
   local r; r="$(remoto)"
-  local fin=$(( $(date +%s) + minutos * 60 ))
+  local inicio; inicio=$(date +%s)
+  local fin=$(( inicio + minutos * 60 ))
   while :; do
     local cambios=()
     for n in "$@"; do
@@ -283,6 +289,9 @@ cmd_vigilar() {
       fi
     done
     if [ ${#cambios[@]} -gt 0 ]; then echo "CAMBIO: ${cambios[*]}  (leer cada una con: leer <nombre>)"; exit 0; fi
+    if [ "$latido" -gt 0 ] && [ $(( $(date +%s) - inicio )) -ge $(( latido * 60 )) ]; then
+      echo "SIN SENAL: ninguna subida de $* en $latido minutos. Puede que la sesion se haya parado: comprueba con 'estado <nombre>'"; exit 3
+    fi
     if [ "$(date +%s)" -ge "$fin" ]; then echo "TIEMPO AGOTADO sin cambios en: $*"; exit 1; fi
     sleep 30
   done
@@ -303,6 +312,13 @@ cmd_leer() {
   echo; echo "== .nube/INFORME.md"; git show "$sha:.nube/INFORME.md" 2>/dev/null || echo "(no hay INFORME.md)"
   echo; echo "== archivos en .nube/ (leer con: git show $sha:<ruta>)"
   git -c core.quotePath=false ls-tree -r --name-only "$sha" .nube 2>/dev/null
+}
+
+cmd_estado() { # ultimo estado entregado y hace cuanto
+  local n="${1:-}"; valida_nombre "$n"; raiz >/dev/null
+  if ! baja "$n"; then echo "$n: todavia no ha subido nada (rama $(rama_de "$n") no existe)"; return 0; fi
+  local sha t; sha="$(git rev-parse "$(ref_de "$n")")"; t="$(git log -1 --format=%ct "$sha")"
+  echo "$n: $(git show "$sha:.nube/ESTADO.md" 2>/dev/null | head -1) ; ultima subida hace $(( ($(date +%s) - t) / 60 )) min"
 }
 
 cmd_responder() {
@@ -361,7 +377,7 @@ c="${1:-}"; shift || true
 case "$c" in
   revisar) cmd_revisar "$@";; subir-base) cmd_subir_base "$@";; lanzar) cmd_lanzar "$@";;
   preparar) cmd_preparar "$@";; registrar) cmd_registrar "$@";; instalar) cmd_instalar "$@";;
-  vigilar) cmd_vigilar "$@";; leer) cmd_leer "$@";; responder) cmd_responder "$@";;
+  vigilar) cmd_vigilar "$@";; leer) cmd_leer "$@";; responder) cmd_responder "$@";; estado) cmd_estado "$@";;
   lista) cmd_lista "$@";; limpiar) cmd_limpiar "$@";; limpiar-base) cmd_limpiar_base "$@";;
-  *) sed -n '2,17p' "${BASH_SOURCE[0]}"; exit 2;;
+  *) sed -n '2,18p' "${BASH_SOURCE[0]}"; exit 2;;
 esac

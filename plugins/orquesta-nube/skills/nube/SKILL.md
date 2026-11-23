@@ -160,12 +160,23 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/nube.sh" vigilar <minutos> <nombre1> <nombre
   despierta sola. No hagas sondeos ni `sleep` por tu cuenta.
 - **Al despertar.** Ejecuta `NUBE leer <nombre>` por cada nombre que diga `CAMBIO:`, y
   según su estado:
+  - `ESTADO: EN CURSO`: es un latido. Sigue viva; vuelve a lanzar `vigilar` con ella.
   - `ESTADO: TERMINADO`: guarda el resultado.
   - `ESTADO: PREGUNTA`: respóndele (ver abajo).
   - `ESTADO: ERROR`: si el fallo es de la propia nube (instalación, red), relanza
     **una** vez con otro nombre; si se repite, informa.
 - **Las que faltan.** Si quedan sesiones sin entregar, vuelve a lanzar `vigilar` solo
   con esas.
+- **`SIN SENAL`.** El vigilante avisa si en `--latido` minutos (60 por defecto) no
+  sube nada. Las tareas de más de 30 minutos suben un latido cada 30 minutos, así que
+  esto significa que **probablemente se paró**:
+  1. Ejecuta `NUBE estado <nombre>` y `NUBE leer <nombre>`.
+  2. Escríbele con `responder`: «¿sigues? Sube un avance ahora». Si responde que está
+     archivada o no sube nada en 15 minutos, dásela por **parada**.
+  3. Dile al usuario qué alcanzó a hacer y qué faltó. No digas que sigue trabajando sin
+     haberlo comprobado así.
+- **Tareas muy largas.** Para varias horas, `vigilar` tiene que tener `<minutos>` de
+  sobra (p. ej. 720): el latido es el que avisa si se para.
 - **`TIEMPO AGOTADO`.** Dile al usuario cuáles no entregaron y el enlace de cada una
   (`https://claude.ai/code/<sesion>`, en `NUBE lista`). Puede que estén esperando un
   permiso dentro de la propia sesión.
