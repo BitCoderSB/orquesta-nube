@@ -29,11 +29,19 @@ abajo).
 1. **Revisar.** Ejecuta `NUBE revisar`. La última línea dice el modo:
    - `LISTO MODO=consola`: lanzas con `lanzar` y no se le pide nada al usuario. Es el
      mejor modo.
-   - `LISTO MODO=app`: falta el comando `claude` de consola o su inicio de sesión. Usa el
-     **modo app** (sección propia, más abajo): funciona, pero **cada sesión le pedirá
-     permiso al usuario**. Díselo una vez, junto con cómo evitarlo: instalar Claude Code
-     de consola y ejecutar `claude auth login` una sola vez. El código lo pega él; tú
-     nunca escribes códigos ni contraseñas.
+   - `LISTO MODO=app`: falta el comando `claude` de consola o su inicio de sesión.
+     Explícale al usuario, en dos líneas, que hay dos opciones:
+     - **Dejarlo listo una vez** (recomendado). Desde entonces, nada de permisos.
+     - Usar el **modo app** (sección propia, más abajo): funciona, pero pide permiso en
+       cada sesión.
+
+     Si elige dejarlo listo, **en este orden**:
+     1. Si `revisar` dijo `no esta instalado` o `a medio instalar`, ejecuta
+        `NUBE instalar`. **No pidas el login antes de que diga `INSTALADO` o
+        `YA INSTALADO`**: sin el comando, `claude auth login` da «no se reconoce».
+     2. Pídele que abra una terminal **nueva**, ejecute `claude auth login` y pegue él
+        el código. Tú nunca escribes códigos ni contraseñas.
+     3. Ejecuta otra vez `NUBE revisar` hasta que diga `MODO=consola`.
    - Una línea `FALTA`: no se puede seguir; díselo al usuario tal cual.
    - Si dice que el repositorio es **público**, avísale una vez: lo que se suba a las
      ramas `nube-*` lo puede ver cualquiera.

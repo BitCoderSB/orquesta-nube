@@ -2,6 +2,7 @@
 # orquesta-nube: lanza sesiones de Claude Code en la nube, las vigila y les responde,
 # sin paneles ni avisos. Uso: nube.sh <comando> [args]
 #   revisar                         comprueba claude, sesion iniciada, remoto de GitHub y rama
+#   instalar                        instala el comando claude de consola (con npm) si falta
 #   subir-base <tema>               sube tus cambios (con y sin commit) a nube-base-<tema> SIN tocar tu rama
 #   lanzar <nombre> <archivo|->     crea la sesion de nube; la tarea sale del archivo (o stdin)
 #   preparar <nombre> <archivo|->   MODO APP (sin consola): arma la tarea para lanzarla con start_session
@@ -63,7 +64,7 @@ cmd_revisar() {
       else echo "SIN CONSOLA: falta iniciar sesion en la consola (claude auth login, una vez)"; cli=0; fi
     fi
   else
-    echo "SIN CONSOLA: el comando claude no esta instalado"; cli=0
+    echo "SIN CONSOLA: el comando claude no esta instalado (se instala con: instalar)"; cli=0
   fi
   raiz >/dev/null
   local r url; r="$(remoto)"; url="$(git remote get-url "$r" 2>/dev/null)"
@@ -85,6 +86,27 @@ cmd_revisar() {
   [ $ok = 1 ] || exit 1
   if [ $cli = 1 ]; then echo "LISTO MODO=consola (sin permisos: usa lanzar)"
   else echo "LISTO MODO=app (cada sesion pedira permiso al usuario: usa preparar + start_session + registrar. Para no pedirlo: instalar claude y claude auth login una vez)"; fi
+}
+
+claude_ok() { command -v claude >/dev/null && claude --version 2>&1 | head -1 | grep -qv 'native binary not installed'; }
+
+cmd_instalar() { # instala el comando claude de consola (necesario para el modo sin permisos)
+  if claude_ok; then echo "YA INSTALADO: $(claude --version 2>&1 | head -1)"; return 0; fi
+  command -v npm >/dev/null || { echo "SIN NPM: instala Node.js (que trae npm) o Claude Code segun su documentacion oficial, y vuelve a ejecutar: instalar"; exit 1; }
+  echo "Instalando Claude Code de consola con npm (tarda un poco)..."
+  npm install -g @anthropic-ai/claude-code --include=optional 2>&1 | tail -3
+  if ! claude_ok; then # npm a veces deja el programa a medias: se completa con su instalador
+    local d; d="$(npm root -g 2>/dev/null)/@anthropic-ai/claude-code"
+    [ -f "$d/install.cjs" ] && ( cd "$d" && node install.cjs 2>&1 | tail -2 )
+  fi
+  hash -r 2>/dev/null
+  if claude_ok; then
+    echo "INSTALADO: $(claude --version 2>&1 | head -1)"
+    echo "Falta UNA vez: el usuario ejecuta 'claude auth login' en una terminal NUEVA y pega el codigo."
+  else
+    echo "NO QUEDO INSTALADO. Si dice que no encuentra 'claude', abre una terminal nueva y prueba 'claude --version'; npm global: $(npm root -g 2>/dev/null)"
+    exit 1
+  fi
 }
 
 cmd_preparar() { # modo app: arma la tarea completa y registra la sesion; el chat la lanza con start_session
@@ -280,8 +302,8 @@ cmd_limpiar_base() {
 c="${1:-}"; shift || true
 case "$c" in
   revisar) cmd_revisar "$@";; subir-base) cmd_subir_base "$@";; lanzar) cmd_lanzar "$@";;
-  preparar) cmd_preparar "$@";; registrar) cmd_registrar "$@";;
+  preparar) cmd_preparar "$@";; registrar) cmd_registrar "$@";; instalar) cmd_instalar "$@";;
   vigilar) cmd_vigilar "$@";; leer) cmd_leer "$@";; responder) cmd_responder "$@";;
   lista) cmd_lista "$@";; limpiar) cmd_limpiar "$@";; limpiar-base) cmd_limpiar_base "$@";;
-  *) sed -n '2,16p' "${BASH_SOURCE[0]}"; exit 2;;
+  *) sed -n '2,17p' "${BASH_SOURCE[0]}"; exit 2;;
 esac
