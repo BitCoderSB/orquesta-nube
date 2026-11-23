@@ -1,0 +1,21 @@
+{
+  "name": "orquesta-nube",
+  "owner": {
+    "name": "BitCoderSB"
+  },
+  "metadata": {
+    "description": "Trabajo en la nube orquestado desde tu chat local de Claude Code.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "orquesta-nube",
+      "description": "Lanza, vigila y responde a sesiones de Claude Code en la nube desde tu chat local, sin permisos ni clics.",
+      "version": "0.1.0",
+      "author": {
+        "name": "BitCoderSB"
+      },
+      "source": "./plugins/orquesta-nube"
+    }
+  ]
+}
