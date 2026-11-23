@@ -1,6 +1,6 @@
 {
   "name": "orquesta-nube",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Orquesta sesiones de Claude Code en la nube desde tu chat local: las lanza, las vigila, les responde y analiza lo que entregan, sin pedirte permisos ni clics.",
   "author": {
     "name": "BitCoderSB"
