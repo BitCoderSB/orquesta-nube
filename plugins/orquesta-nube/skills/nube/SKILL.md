@@ -92,8 +92,24 @@ usuario solo lo que sea decisión suya. Después, vuelve a lanzar `vigilar` con 
 - Resume para el usuario con lo que **leíste** en las ramas: números y salidas reales,
   sin inventar.
 - Di qué versión del código probó la nube: GitHub, o la rama `nube-base-…`.
-- Las ramas `nube-*` quedan en GitHub. Bórralas (`git push origin --delete nube-<nombre>`)
-  solo si el usuario lo pide.
+## Limpiar al terminar (siempre, sin preguntar)
+
+Para no dejar basura: cuando hayas leído una sesión con `ESTADO: TERMINADO` o
+`ESTADO: ERROR` y ya no la vayas a relanzar ni a responder, límpiala:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/nube.sh" limpiar <nombre1> <nombre2> ...
+```
+
+Guarda una copia de su `.nube/` en `.git/nube/resultados/<nombre>/`, dentro del
+repositorio local y fuera del código, y borra la rama `nube-<nombre>` de GitHub. Si
+subiste una rama `nube-base-<tema>` para la tarea, bórrala también al final con
+`NUBE limpiar-base nube-base-<tema>`. No limpies una sesión que está en
+`ESTADO: PREGUNTA` o que sigue trabajando.
+
+Los chats de nube no se pueden archivar desde la consola: quedan en claude.ai/code. Si el
+usuario pregunta, dile que puede archivarlos ahí, y que sus nombres empiezan por
+«nube».
 
 ## Límites que debes contar si vienen al caso
 

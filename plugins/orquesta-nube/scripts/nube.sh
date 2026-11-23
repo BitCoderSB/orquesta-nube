@@ -7,6 +7,8 @@
 #   leer <nombre>                   baja la rama de resultados y muestra estado e informe
 #   responder <nombre> <mensaje>    manda un mensaje de seguimiento a esa sesion
 #   lista                           sesiones lanzadas desde este repositorio
+#   limpiar <nombre...>             guarda copia local de .nube/ y borra la rama nube-<nombre> de GitHub
+#   limpiar-base <rama>             borra una rama nube-base-* de GitHub (la de los cambios subidos)
 set -u
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -49,6 +51,7 @@ cmd_revisar() {
 
 encabezado() { # nombre rama
 cat <<EOF
+nube: $1
 Eres una sesion de trabajo en la nube controlada por OTRA sesion de Claude (el orquestador), no por una persona. Reglas:
 - No hagas preguntas en el chat: nadie las lee.
 - Todo lo que entregues va en la carpeta .nube/ de la raiz del repositorio. Escribe SIEMPRE .nube/ESTADO.md (la primera linea exactamente una de: ESTADO: TERMINADO / ESTADO: PREGUNTA / ESTADO: ERROR) y .nube/INFORME.md (resultado, con salidas reales de comandos; sin inventar numeros).
@@ -136,9 +139,40 @@ cmd_lista() {
   printf 'NOMBRE\tSESION\tRAMA\tULTIMO_SHA\tFECHA\n'; cat "$f"
 }
 
+cmd_limpiar() {
+  [ $# -gt 0 ] || die "uso: limpiar <nombre...>"
+  raiz >/dev/null
+  local n
+  for n in "$@"; do
+    valida_nombre "$n"
+    local rama dest; rama="$(rama_de "$n")"; dest="$(estado_dir)/resultados/$n"
+    if git fetch -q origin "$rama" 2>/dev/null; then
+      mkdir -p "$dest"
+      local p
+      while IFS= read -r p; do
+        mkdir -p "$dest/$(dirname "${p#.nube/}")"
+        git show "FETCH_HEAD:$p" > "$dest/${p#.nube/}"
+      done < <(git ls-tree -r --name-only FETCH_HEAD .nube 2>/dev/null)
+      git rev-parse FETCH_HEAD > "$dest/.commit"
+      if git push -q origin --delete "$rama" 2>/dev/null; then echo "LIMPIA $n: copia en $dest ; rama $rama borrada de GitHub"
+      else echo "AVISO $n: copia en $dest, pero no pude borrar $rama de GitHub"; fi
+    else
+      echo "$n: la rama $rama ya no existe en GitHub (nada que borrar)"
+    fi
+    local f; f="$(estado_file)"; [ -f "$f" ] && { awk -F'\t' -v n="$n" '$1!=n' "$f" > "$f.tmp"; mv "$f.tmp" "$f"; }
+  done
+}
+
+cmd_limpiar_base() {
+  local r="${1:-}"; [[ "$r" == nube-base-* ]] || die "solo borro ramas nube-base-*"
+  raiz >/dev/null
+  git push -q origin --delete "$r" && echo "rama $r borrada de GitHub"
+}
+
 c="${1:-}"; shift || true
 case "$c" in
   revisar) cmd_revisar "$@";; lanzar) cmd_lanzar "$@";; vigilar) cmd_vigilar "$@";;
   leer) cmd_leer "$@";; responder) cmd_responder "$@";; lista) cmd_lista "$@";;
-  *) sed -n '2,10p' "${BASH_SOURCE[0]}"; exit 2;;
+  limpiar) cmd_limpiar "$@";; limpiar-base) cmd_limpiar_base "$@";;
+  *) sed -n '2,12p' "${BASH_SOURCE[0]}"; exit 2;;
 esac
